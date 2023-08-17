@@ -1,0 +1,93 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+- none
+
+pool:
+  vmImage: ubuntu-latest
+
+
+stages:
+- stage: Terraform_Build
+  displayName: 'Build Resource Group with Terraform'
+  jobs: 
+  - job: Build
+    displayName: Build Resource Group
+    timeoutInMinutes: 30 # job times out in 30 minutes
+    steps: 
+      - task: TerraformInstaller@1
+        displayName: terrafrom Install
+        inputs:
+          terraformVersion: 'latest'
+      - task: TerraformTaskV2@2
+        displayName: terraform init
+        inputs:
+          provider: 'azurerm'
+          command: 'init'
+          workingDirectory: '$(System.DefaultWorkingDirectory)/terraform'
+          backendServiceArm: 'aks provisioning-Infra'
+          backendAzureRmResourceGroupName: 'Test-RG'
+          backendAzureRmStorageAccountName: 'teststorageaccount'
+          backendAzureRmContainerName: 'terraform'
+          backendAzureRmKey: 'tf/terraform.tfstate'
+
+      - task: TerraformTaskV4@4
+        displayName: Run terraform Validate
+        inputs:
+          provider: 'azurerm'
+          command: 'validate'
+          workingDirectory: '$(System.DefaultWorkingDirectory)/terraform'
+
+      - task: TerraformTaskV4@4
+        displayName: run terraform Plan
+        inputs:
+          provider: 'azurerm'
+          command: 'plan'
+          workingDirectory: '$(System.DefaultWorkingDirectory)/terraform'
+          environmentServiceNameAzureRM: 'aks provisioning-Infra'
+
+# Review step
+- stage: review_by_user
+  displayName: Review stage
+  jobs: 
+  - job: waitForValidation
+    displayName: Wait for external validation
+    pool: server
+    timeoutInMinutes: 1440 # job times out in a day
+    steps:   
+    - task: ManualValidation@0
+      timeoutInMinutes: 1440 # task times out in 1 day
+      inputs:
+        notifyUsers: 'gupta.rashmi57@gmail.com'
+        instructions: 'Please validate the build configuration and resume'
+          
+# Equivalent to terraform apply main.tfplan
+- stage: apply
+  displayName: Apply stage
+  jobs: 
+  - job: apply_job
+    displayName: Terraform apply
+    timeoutInMinutes: 30 # job times out in 30 minutes
+    steps:     
+    - task: TerraformTaskV2@2
+      displayName: terraform init
+      inputs:
+        provider: 'azurerm'
+        command: 'init'
+        workingDirectory: '$(System.DefaultWorkingDirectory)/terraform'
+        backendServiceArm: 'aks provisioning-Infra'
+        backendAzureRmResourceGroupName: 'Test-RG'
+        backendAzureRmStorageAccountName: 'teststorageaccount'
+        backendAzureRmContainerName: 'terraform'
+        backendAzureRmKey: 'tf/terraform.tfstate'
+        
+    - task: TerraformTaskV2@2
+      displayName: terraform apply 
+      inputs:
+        provider: 'azurerm'
+        command: 'apply'
+        workingDirectory: '$(System.DefaultWorkingDirectory)/terraform'
+        environmentServiceNameAzureRM: 'aks provisioning-Infra'
