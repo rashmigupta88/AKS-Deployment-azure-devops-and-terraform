@@ -61,7 +61,7 @@ stages:
     - task: ManualValidation@0
       timeoutInMinutes: 1440 # task times out in 1 day
       inputs:
-        notifyUsers: 'gupta.rashmi57@gmail.com'
+        notifyUsers: 'user@gmail.com'
         instructions: 'Please validate the build configuration and resume'
           
 # Equivalent to terraform apply main.tfplan
